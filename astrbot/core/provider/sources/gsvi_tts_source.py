@@ -2,7 +2,7 @@ import uuid
 import aiohttp
 import urllib.parse
 from ..provider import TTSProvider
-from ..entities import ProviderType
+from ..entites import ProviderType
 from ..register import register_provider_adapter
 
 

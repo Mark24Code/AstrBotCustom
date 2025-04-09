@@ -11,7 +11,7 @@ import re
 from funasr_onnx import SenseVoiceSmall
 from funasr_onnx.utils.postprocess_utils import rich_transcription_postprocess
 from ..provider import STTProvider
-from ..entities import ProviderType
+from ..entites import ProviderType
 from astrbot.core.utils.io import download_file
 from ..register import register_provider_adapter
 from astrbot.core import logger

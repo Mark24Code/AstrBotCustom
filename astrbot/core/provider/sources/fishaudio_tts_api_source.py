@@ -4,7 +4,7 @@ from pydantic import BaseModel, conint
 from httpx import AsyncClient
 from typing import Annotated, Literal
 from ..provider import TTSProvider
-from ..entities import ProviderType
+from ..entites import ProviderType
 from ..register import register_provider_adapter
 
 

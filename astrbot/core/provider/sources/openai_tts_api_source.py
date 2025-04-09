@@ -1,7 +1,7 @@
 import uuid
 from openai import AsyncOpenAI, NOT_GIVEN
 from ..provider import TTSProvider
-from ..entities import ProviderType
+from ..entites import ProviderType
 from ..register import register_provider_adapter
 
 

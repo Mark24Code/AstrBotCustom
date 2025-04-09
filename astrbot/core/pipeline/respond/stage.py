@@ -1,26 +1,59 @@
 import random
 import asyncio
 import math
+import json
+import os
 import traceback
 import astrbot.core.message.components as Comp
 from typing import Union, AsyncGenerator
 from ..stage import register_stage, Stage
 from ..context import PipelineContext
 from astrbot.core.platform.astr_message_event import AstrMessageEvent
-from astrbot.core.message.message_event_result import MessageChain, ResultContentType
+from astrbot.core.message.message_event_result import MessageChain
 from astrbot.core import logger
 from astrbot.core.message.message_event_result import BaseMessageComponent
 from astrbot.core.star.star_handler import star_handlers_registry, EventType
 from astrbot.core.star.star import star_map
+import aiohttp
+
+PHONE_HOST = None
+# 读取phone配置文件
+try:
+    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))), 'config', 'phone_config.json')
+    with open(config_path, 'r') as f:
+        phone_config = json.load(f)
+        PHONE_HOST = phone_config.get('phone_host')
+except Exception as e:
+    logger.error(f"读取phone配置文件失败: {e}")
+    PHONE_HOST = None
+
+async def send_http_request(url, method='GET', headers=None, data=None):
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.request(method, url, headers=headers, data=data) as response:
+                return await response.text()
+    except Exception as e:
+        return f'请求发生错误: {str(e)}'
+
+async def send_to_phone(content):
+    if not PHONE_HOST:
+        return
+
+    content = {
+        'ai_response': content
+    }
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    print("send->phone", PHONE_HOST)
+    await send_http_request(PHONE_HOST, 'POST', headers=headers, data=content)
 
 
 @register_stage
 class RespondStage(Stage):
     # 组件类型到其非空判断函数的映射
     _component_validators = {
-        Comp.Plain: lambda comp: bool(
-            comp.text and comp.text.strip()
-        ),  # 纯文本消息需要strip
+        Comp.Plain: lambda comp: bool(comp.text and comp.text.strip()),  # 纯文本消息需要strip
         Comp.Face: lambda comp: comp.id is not None,  # QQ表情
         Comp.Record: lambda comp: bool(comp.file),  # 语音
         Comp.Video: lambda comp: bool(comp.file),  # 视频
@@ -33,17 +66,13 @@ class RespondStage(Stage):
         Comp.Share: lambda comp: bool(comp.url) and bool(comp.title),  # 分享
         Comp.Contact: lambda comp: True,  # 联系人(未完成)
         Comp.Location: lambda comp: bool(comp.lat and comp.lon),  # 位置
-        Comp.Music: lambda comp: bool(comp._type)
-        and bool(comp.url)
-        and bool(comp.audio),  # 音乐
+        Comp.Music: lambda comp: bool(comp._type) and bool(comp.url) and bool(comp.audio),  # 音乐
         Comp.Image: lambda comp: bool(comp.file),  # 图片
         Comp.Reply: lambda comp: bool(comp.id) and comp.sender_id is not None,  # 回复
         Comp.RedBag: lambda comp: bool(comp.title),  # 红包
         Comp.Poke: lambda comp: comp.id != 0 and comp.qq != 0,  # 戳一戳
         Comp.Forward: lambda comp: bool(comp.id and comp.id.strip()),  # 转发
-        Comp.Node: lambda comp: bool(comp.name)
-        and comp.uin != 0
-        and bool(comp.content),  # 一个转发节点
+        Comp.Node: lambda comp: bool(comp.name) and comp.uin != 0 and bool(comp.content),  # 一个转发节点
         Comp.Nodes: lambda comp: bool(comp.nodes),  # 多个转发节点
         Comp.Xml: lambda comp: bool(comp.data and comp.data.strip()),  # XML
         Comp.Json: lambda comp: bool(comp.data),  # JSON
@@ -138,17 +167,8 @@ class RespondStage(Stage):
         result = event.get_result()
         if result is None:
             return
-        if result.result_content_type == ResultContentType.STREAMING_FINISH:
-            return
 
-        if result.result_content_type == ResultContentType.STREAMING_RESULT:
-            # 流式结果直接交付平台适配器处理
-            logger.info(f"应用流式输出({event.get_platform_name()})")
-            await event._pre_send()
-            await event.send_streaming(result.async_stream)
-            await event._post_send()
-            return
-        elif len(result.chain) > 0:
+        if len(result.chain) > 0:
             await event._pre_send()
 
             # 检查消息链是否为空
@@ -196,7 +216,10 @@ class RespondStage(Stage):
             logger.info(
                 f"AstrBot -> {event.get_sender_name()}/{event.get_sender_id()}: {event._outline_chain(result.chain)}"
             )
-
+            # 异步发送到手机
+            asyncio.create_task(send_to_phone(event._outline_chain(result.chain)))
+            
+    
         handlers = star_handlers_registry.get_handlers_by_event_type(
             EventType.OnAfterMessageSentEvent
         )

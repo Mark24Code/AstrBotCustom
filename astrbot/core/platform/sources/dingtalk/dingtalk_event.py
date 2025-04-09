@@ -24,11 +24,7 @@ class DingtalkMessageEvent(AstrMessageEvent):
             if isinstance(segment, Comp.Plain):
                 segment.text = segment.text.strip()
                 await asyncio.get_event_loop().run_in_executor(
-                    None,
-                    client.reply_markdown,
-                    "AstrBot",
-                    segment.text,
-                    self.message_obj.raw_message,
+                    None, client.reply_markdown, "AstrBot", segment.text, self.message_obj.raw_message
                 )
             elif isinstance(segment, Comp.Image):
                 markdown_str = ""
@@ -60,16 +56,3 @@ class DingtalkMessageEvent(AstrMessageEvent):
     async def send(self, message: MessageChain):
         await self.send_with_client(self.client, message)
         await super().send(message)
-
-    async def send_streaming(self, generator):
-        buffer = None
-        async for chain in generator:
-            if not buffer:
-                buffer = chain
-            else:
-                buffer.chain.extend(chain.chain)
-        if not buffer:
-            return
-        buffer.squash_plain()
-        await self.send(buffer)
-        return await super().send_streaming(generator)

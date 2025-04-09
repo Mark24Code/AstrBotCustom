@@ -141,13 +141,11 @@ class LogQueueHandler(logging.Handler):
             record (logging.LogRecord): 日志记录对象, 包含日志信息
         """
         log_entry = self.format(record)
-        self.log_broker.publish(
-            {
-                "level": record.levelname,
-                "time": record.asctime,
-                "data": log_entry,
-            }
-        )
+        self.log_broker.publish({
+            "level": record.levelname,
+            "time": record.asctime,
+            "data": log_entry,
+        })
 
 
 class LogManager:
