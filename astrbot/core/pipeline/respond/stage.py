@@ -46,7 +46,7 @@ async def send_to_phone(content):
         'Content-Type': 'application/json'
     }
     print("send->phone", PHONE_HOST)
-    await send_http_request(PHONE_HOST, 'POST', headers=headers, data=content)
+    await send_http_request(PHONE_HOST, 'POST', headers=headers, data=json.dumps(content))
 
 
 @register_stage
