@@ -237,14 +237,18 @@ class LLMRequestSubStage(Stage):
                     func_tool = req.func_tool.get_func(func_tool_name)
                     if func_tool.origin == "mcp":
                         logger.info(
-                            f"从 MCP 服务 {func_tool.mcp_server_name} 调用工具函数：{func_tool.name}，参数：{func_tool_args}"
+                            f"从 MCP 服务 {func_tool.mcp_server_name} 调用工具函数1：{func_tool.name}，参数：{func_tool_args}"
                         )
                         client = req.func_tool.mcp_client_dict[
                             func_tool.mcp_server_name
                         ]
-                        res = await client.session.call_tool(
-                            func_tool.name, func_tool_args
+                        print("client:", client)
+                        res = await asyncio.wait_for(
+                            client.session.call_tool(func_tool.name, func_tool_args),
+                            timeout=60.0
                         )
+                        print("mcp response")
+                        print(res)
                         if res:
                             # TODO content的类型可能包括list[TextContent | ImageContent | EmbeddedResource]，这里只处理了TextContent。
                             tool_call_result.append(
@@ -274,6 +278,15 @@ class LLMRequestSubStage(Stage):
                             else:
                                 yield  # 有生成器返回
                     event.clear_result()  # 清除上一个 handler 的结果
+                except asyncio.TimeoutError:
+                    logger.error(f"MCP 工具调用超时: {func_tool.name}")
+                    tool_call_result.append(
+                        ToolCallMessageSegment(
+                            role="tool",
+                            tool_call_id=func_tool_id,
+                            content="error: MCP 服务调用超时",
+                        )
+                    )
                 except BaseException as e:
                     logger.warning(traceback.format_exc())
                     tool_call_result.append(
